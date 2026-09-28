@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Suivi de Commande - Saisie Écrite</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background-color: #f4f7f6; 
+      padding: 40px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+    .container { 
+      background: white; 
+      padding: 30px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+      width: 100%; 
+      max-width: 450px; 
+      text-align: center; 
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 15px;
+      outline: none;
+    }
+    input[type="text"]:focus {
+      border-color: #1a73e8;
+    }
+    .btn-send { 
+      background-color: #1a73e8; 
+      color: white; 
+      border: none; 
+      padding: 12px 20px; 
+      border-radius: 6px; 
+      font-size: 15px; 
+      font-weight: bold; 
+      cursor: pointer; 
+      transition: background 0.2s; 
+    }
+    .btn-send:hover { 
+      background-color: #1557b0; 
+    }
+    .card { 
+      background: #f8f9fa; 
+      border-left: 5px solid #1a73e8; 
+      border-radius: 6px; 
+      padding: 15px; 
+      text-align: left; 
+      margin-top: 25px; 
+      display: none; 
+    }
+    .card h3 { 
+      margin-top: 0; 
+      color: #202124; 
+    }
+    .status-badge { 
+      display: inline-block; 
+      padding: 4px 12px; 
+      border-radius: 12px; 
+      background-color: #e8f0fe; 
+      color: #1a73e8; 
+      font-weight: bold; 
+    }
+    .loader {
+      display: none;
+      margin-top: 15px;
+      color: #5f6368;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Suivi de Commande</h2>
+  <p style="color: #5f6368; font-size: 14px;">Entrez votre demande ci-dessous</p>
+
+  <form id="searchForm" class="input-group">
+    <input 
+      type="text" 
+      id="promptInput" 
+      placeholder="Ex: Cherche le statut de la commande 12" 
+      required
+    />
+    <button type="submit" class="btn-send">Rechercher</button>
+  </form>
+
+  <div id="loader" class="loader">Recherche en cours dans Google Sheets...</div>
+
+  <div id="resultCard" class="card">
+    <h3 id="cardTitle">Commande #----</h3>
+    <p><strong>Statut :</strong> <span id="cardStatus" class="status-badge">-</span></p>
+    <p><strong>Client :</strong> <span id="cardClient">-</span></p>
+    <p><strong>Livraison :</strong> <span id="cardDate">-</span></p>
+  </div>
+</div>
+
+<script>
+  // Remplacer par votre URL HTTP de Cloud Function
+  const CLOUD_FUNCTION_URL = "https://chatbot-1054834346758.europe-west1.run.app";
+
+  const searchForm = document.getElementById('searchForm');
+  const promptInput = document.getElementById('promptInput');
+  const resultCard = document.getElementById('resultCard');
+  const loader = document.getElementById('loader');
+
+  searchForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const promptText = promptInput.value.trim();
+    if (!promptText) return;
+
+    resultCard.style.display = 'none';
+    loader.style.display = 'block';
+
+    await interrogerAgent(promptText);
+
+    loader.style.display = 'none';
+  });
+
+  async function interrogerAgent(promptText) {
+    try {
+      const response = await fetch(CLOUD_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText })
+      });
+
+      const data = await response.json();
+
+      if (data.trouve) {
+        document.getElementById('cardTitle').innerText = "Commande #" + data.commande_id;
+        document.getElementById('cardStatus').innerText = data.statut;
+        document.getElementById('cardClient').innerText = data.client;
+        document.getElementById('cardDate').innerText = data.date_livraison || "N/A";
+        resultCard.style.display = 'block';
+      } else {
+        alert(data.erreur || "Commande non trouvée dans le Google Sheet.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la communication avec l'agent.");
+    }
+  }
+</script>
+
+</body>
+</html>

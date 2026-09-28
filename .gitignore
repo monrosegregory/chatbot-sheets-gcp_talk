@@ -1,3 +1,6 @@
 *.json
 service_account.json
 .env
+*.zip
+README-cloudshell.txt
+__pycache__/

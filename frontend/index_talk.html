@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Assistant Commandes vocal</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 40px; display: flex; flex-direction: column; align-items: center; }
+    .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
+    .btn-speech { background-color: #1a73e8; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+    .btn-speech.listening { background-color: #d93025; animation: pulse 1.5s infinite; }
+    .transcript { margin: 20px 0; font-style: italic; color: #5f6368; min-height: 24px; }
+    .card { background: #f8f9fa; border-left: 5px solid #1a73e8; border-radius: 6px; padding: 15px; text-align: left; margin-top: 20px; display: none; }
+    .card h3 { margin-top: 0; color: #202124; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; background-color: #e8f0fe; color: #1a73e8; font-weight: bold; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Suivi de Commande Vocal</h2>
+  <button id="micBtn" class="btn-speech">🎙️ Cliquer pour parler</button>
+  <div id="transcript" class="transcript">Exemple : "Cherche le statut de la commande 7777"</div>
+
+  <div id="resultCard" class="card">
+    <h3 id="cardTitle">Commande #----</h3>
+    <p><strong>Statut :</strong> <span id="cardStatus" class="status-badge">-</span></p>
+    <p><strong>Client :</strong> <span id="cardClient">-</span></p>
+    <p><strong>Livraison :</strong> <span id="cardDate">-</span></p>
+  </div>
+</div>
+
+<script>
+  // Remplacer par l'URL obtenue lors du déploiement gcloud
+  const CLOUD_FUNCTION_URL = "https://chatbot-1054834346758.europe-west1.run.app";
+
+  const micBtn = document.getElementById('micBtn');
+  const transcriptElem = document.getElementById('transcript');
+  const resultCard = document.getElementById('resultCard');
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+
+    micBtn.addEventListener('click', () => {
+      recognition.start();
+      micBtn.classList.add('listening');
+      micBtn.innerText = "Écoute en cours...";
+    });
+
+    recognition.onresult = async (event) => {
+      const textCapture = event.results[0][0].transcript;
+      transcriptElem.innerText = `"${textCapture}"`;
+      micBtn.classList.remove('listening');
+      micBtn.innerText = "🎙️ Cliquer pour parler";
+
+      // Envoi de la consigne capturée au backend
+      await interrogerAgent(textCapture);
+    };
+
+    recognition.onerror = () => {
+      micBtn.classList.remove('listening');
+      micBtn.innerText = "🎙️ Cliquer pour parler";
+      transcriptElem.innerText = "Erreur de capture vocale. Réessayez.";
+    };
+  } else {
+    alert("Reconnaissance vocale non supportée sur ce navigateur. Utilisez Chrome ou Safari.");
+  }
+
+  async function interrogerAgent(promptText) {
+    try {
+      const response = await fetch(CLOUD_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText })
+      });
+
+      const data = await response.json();
+
+      if (data.trouve) {
+        document.getElementById('cardTitle').innerText = "Commande #" + data.commande_id;
+        document.getElementById('cardStatus').innerText = data.statut;
+        document.getElementById('cardClient').innerText = data.client;
+        document.getElementById('cardDate').innerText = data.date_livraison;
+        resultCard.style.display = 'block';
+      } else {
+        alert(data.erreur || "Commande non trouvée.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la communication avec l'agent.");
+    }
+  }
+</script>
+
+</body>
+</html>
